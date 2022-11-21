@@ -1,0 +1,385 @@
+import math
+import operator
+import sys
+import time
+import numpy as np
+
+# the statement of graph class
+class Graph():
+    def __init__(self):
+        self.nodes = {}
+        self.graph = {}
+
+# generate graph to denote network
+def GetNetwork(f1, f2):
+    G = Graph()
+    with open(f1) as f:
+        lines = f.readlines()
+        for line in lines:
+            curLine = line.strip().split(" ")
+            G.nodes.update({int(curLine[0]): [float(curLine[1]), float(curLine[2])]})
+    with open(f2) as ef:
+        elines = ef.readlines()
+        for line in elines:
+            cureline = line.strip().split(" ")
+            if (len(cureline) > 1):
+                temp = []
+                for i in range(1, len(cureline)):
+                    temp.append(int(cureline[i]))
+                G.graph.update({int(cureline[0]): temp})
+            else:
+                G.graph.update({int(cureline[0]): []})
+    return G
+
+# node - location
+def node_location(g, nodeset):
+    X = []
+    Y = []
+    for i in nodeset:
+        X.append(g.nodes[i][0])
+        Y.append(g.nodes[i][1])
+    arr_X = np.array(X)
+    arr_Y = np.array(Y)
+    return arr_X.sum() / len(arr_X), arr_Y.sum() / len(arr_Y)
+
+# compute incrementally the structural cohesiveness of community
+def ReComputeM(g, vc, ei, eo, j):
+    num = len(set(vc) & set(g.graph[j]))
+    ei = ei + num
+    eo = eo + len(list(g.graph[j])) - 2 * num
+    if eo == 0:
+        M = round(ei, 8)
+    else:
+        M = round(ei / eo, 8)
+    return M, ei, eo, num
+
+# compute incrementally the spatial cohesiveness of community
+def ReComputeS(g, vc, bx, by, j, dist):
+    ax = np.array(g.nodes[j][0])
+    ay = np.array(g.nodes[j][1])
+    sumd = np.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+    S = round(-((sumd.sum() * 2 + dist) / (len(vc) * (len(vc) - 1))), 8)
+    return S,sumd.sum()
+
+# compute the historical cost between Ct and Ct-1
+def ReComputeK(front_c, g, i, xo, yo, ct, X, Y, KM_max, KS_max):
+    X.append(g.nodes[i][0])
+    Y.append(g.nodes[i][1])
+    arr_X = np.array(X)
+    arr_Y = np.array(Y)
+    x = arr_X.sum() / len(arr_X) - xo
+    y = arr_Y.sum() / len(arr_Y) - yo
+    length = round(math.sqrt(x ** 2 + y ** 2),8)
+    set2 = set(ct)
+    sim = round(len(set(front_c) & (set2)) / len((set2).union(set(front_c))),8)
+    sim_s = length / KS_max
+    sim_c = sim / KM_max
+    k = round((sim_c - sim_s) * 0.5,8)
+    if k == 0:
+        k = 0.000000001
+    return k,X,Y
+
+# compute dist_max_M and dist_max_S of candidate nodes
+def Max_K(front_c, g, xo, yo, Nct, ct, X, Y):
+    sim_space_list, sim_con_list= [], []
+    for i in Nct:
+        ct.append(i)
+        X.append(g.nodes[i][0])
+        Y.append(g.nodes[i][1])
+        arr_X = np.array(X)
+        arr_Y = np.array(Y)
+        x = arr_X.sum() / len(arr_X) - xo
+        y = arr_Y.sum() / len(arr_Y) - yo
+        length = round(math.sqrt(x ** 2 + y ** 2),8)
+        sim_space_list.append(length)
+        set2 = set(ct)
+        sim = round(len(set(front_c) & (set2)) / len((set2).union(set(front_c))),8)
+        sim_con_list.append(sim)
+        X.remove(g.nodes[i][0])
+        Y.remove(g.nodes[i][1])
+        ct.remove(i)
+    arrSpace = np.array(sim_space_list)
+    arrCon = np.array(sim_con_list)
+    return arrCon.max(),arrSpace.max()
+
+# compute dist_max_M and dist_max_S of candidate cpmmunities
+def Max_KK(front_c, g, xo, yo, Can, c, X, Y):
+    sim_space_list, sim_con_list = [], []
+    for i in Can:
+        c.append(i)
+        X.append(g.nodes[i][0])
+        Y.append(g.nodes[i][1])
+        arr_X = np.array(X)
+        arr_Y = np.array(Y)
+        x = arr_X.sum() / len(arr_X) - xo
+        y = arr_Y.sum() / len(arr_Y) - yo
+        length = round(math.sqrt(x ** 2 + y ** 2),8)
+        sim_space_list.append(length)
+        set2 = set(c)
+        sim = round(len(set(front_c) & (set2)) / len((set2).union(set(front_c))),8)
+        sim_con_list.append(sim)
+    arrSpace = np.array(sim_space_list)
+    arrCon = np.array(sim_con_list)
+    return arrCon.max(),arrSpace.max()
+
+# select candidate nodes
+def Select_nodes(g, front_c, ct, n, m1, s1, k1, ei, eo, dist, bx, by, X, Y, xo, yo, KM_max, KS_max, t):
+    candidate_nodes = {}
+    K_dict = {}
+    for i in n:
+        ct.append(i)
+        M, ei, eo, num = ReComputeM(g, ct, ei, eo, i)
+        S, sumd = ReComputeS(g, ct, bx, by, i, dist)
+        if S == -0:
+            S = -0.00000001
+        if t == 1:
+            K = 0
+        else:
+            K, X, Y = ReComputeK(front_c, g, i, xo, yo, ct, X, Y, KM_max, KS_max)
+            X.remove(g.nodes[i][0])
+            Y.remove(g.nodes[i][1])
+        if not ((m1 >= M and s1 > S and k1 >= K) or (m1 > M and s1 >= S and k1 >= K) or (m1 >= M and s1 >= S and k1 > K)):
+        # if (M >= m1 and S > s1) or (M > m1 and S >= s1):
+            candidate_nodes[i] = [M, S, K]
+            K_dict[i] = K
+        ct.remove(i)
+        ei = ei - num
+        eo = eo - len(g.graph[i]) + 2 * num
+        # print("add node " + str(i) + "，M、S and K are :" + str(round(M, 8)) + "；" + str(round(S, 8)) + "；" + str(round(K, 8)))
+    return candidate_nodes,K_dict
+
+# sort candidate nodes
+def AgainSort_MSK(candidate_nodes):
+    EndVandW1 = {}
+    M_list,S_list,K_list = [],[],[]
+    for i in candidate_nodes:
+        M_list.append(candidate_nodes[i][0])
+        S_list.append(candidate_nodes[i][1])
+        K_list.append(candidate_nodes[i][2])
+    arrM = np.array(M_list)
+    arrS = np.array(S_list)
+    arrK = np.array(K_list)
+    div1 = arrM.min() - arrM.max()
+    if div1 == 0:
+        div1 = 0.00000001
+    div2 = arrS.min() - arrS.max()
+    if div2 == 0:
+        div2 = 0.00000001
+    div3 = arrK.min() - arrK.max()
+    if div3 == 0:
+        div3 = 0.00000001
+    for i in candidate_nodes:
+        m_n = (candidate_nodes[i][0] - arrM.max()) / div1
+        s_n = (candidate_nodes[i][1] - arrS.max()) / div2
+        k_n = (candidate_nodes[i][2] - arrK.max()) / div3
+        MMD = round(m_n+s_n+k_n,8)
+        # print("M'、S'、K' and MMD of add node " + str(i) + " :", str("M'="), str(round(m_n,8)), str("S'="), str(round(s_n,8)), str("K'="), str(round(k_n,8)),str("MMD'="),str(round(MMD,8)))
+        EndVandW1[i] = MMD
+    EndVandW1 = sorted(EndVandW1.items(), key=lambda x: x[1])
+    Sort_Candidates = [key for key, value in EndVandW1]
+    return Sort_Candidates
+
+# community expansion
+def Dre_Community(front_c,g,vc,candidate_nodes,ei,eo,dist,bx,by,X,Y, xo, yo, m_old,s_old,k_old,km,ks,History_Opt_community):
+    history = {}
+    for i in candidate_nodes:
+        vc.append(i)
+        M_new, ei, eo, num = ReComputeM(g, vc, ei, eo, i)
+        S_new, sumd = ReComputeS(g, vc, bx, by, i, dist)  #g, g2, vc, sumd, j  S, sumd, m
+        if S_new == 0:
+            S_new = 0.00000001
+        if t == 1:
+            K_new = 0
+            X.append(g.nodes[i][0])
+            Y.append(g.nodes[i][1])
+        else:
+            K_new, X, Y = ReComputeK(front_c, g, i, xo, yo, vc, X, Y, km, ks)
+        # print("the community ",vc," M、 S and K are :" + str(round(M_new,5)) + "；" + str(round(S_new,5)) + "；" + str(round(K_new,5)))
+        dist = dist + sumd * 2
+        bx = np.array(X)
+        by = np.array(Y)
+        history[tuple(vc)] = [M_new, S_new, K_new, ei, eo, dist, bx, by, X[:], Y[:]]
+    opt_community = AgainSort_MSK(history)[0]
+    History_Opt_community[opt_community] = [history[opt_community][0],history[opt_community][1],history[opt_community][6],history[opt_community][7],history[opt_community][8][:],history[opt_community][9][:]]
+    return list(opt_community), history[opt_community][0], history[opt_community][1], history[opt_community][2], history[opt_community][3], \
+           history[opt_community][4], history[opt_community][5], history[opt_community][6], history[opt_community][7], history[opt_community][8],      history[opt_community][9],History_Opt_community
+
+"""LEDR"""
+def generate_next_com(g, front_c, s, xo, yo, t):
+    Ct, x, y, VCTT = [s], [], [], [s]
+    M, S, eI, dist, eO ,K = 0.00000001, -100, 0, 0, len(g.graph[s]), 0.00000001
+    Ct_neighbors = list(g.graph[s])  # Neighbor nodes of community
+    x.append(g.nodes[s][0])
+    y.append(g.nodes[s][1])
+    bx = np.array(x)
+    by = np.array(y)
+    X = [g.nodes[s][0]]
+    Y = [g.nodes[s][1]]
+    History_Opt_community = {}
+    sim_space_list, sim_con_list = [], []
+    M_list,S_list = [],[]
+    Copt = {}
+    while True:
+        K_list = []
+        if len(Ct_neighbors) == 0:
+            break
+        if t == 1:
+            KM_max, KS_max = 0,0
+        else:
+            KM_max,KS_max = Max_K(front_c, g, xo, yo, Ct_neighbors, Ct, X, Y) 
+            KM_max,KS_max = round(KM_max,8),round(KS_max,8)
+
+        """select candidate nodes"""
+        Candidate_nodes,K_dict = Select_nodes(g, front_c, Ct, Ct_neighbors, M, S, K, eI, eO, dist, bx, by, X, Y, xo, yo, KM_max, KS_max, t)
+        
+        if len(Candidate_nodes) == 0:
+            break
+        C = Ct[:]
+
+        """sort candidate nodes"""
+        CN_Desc = AgainSort_MSK(Candidate_nodes)
+        
+        KM, KS = Max_KK(front_c, g, xo, yo, CN_Desc, C, X[:], Y[:])
+        KM, KS = round(KM, 8), round(KS, 8)
+
+        """community expansion"""
+        Ct, M, S, K, eI, eO, dist, bx, by, X, Y, History_Opt_community = Dre_Community(front_c, g, Ct, CN_Desc, eI, eO, dist, bx, by, X, Y,  xo, yo, M, S, K, KM, KS, History_Opt_community)
+        
+        """compute M' and S' of Ct"""
+        M_list.append(M)
+        S_list.append(S)
+        arr_M = np.array(M_list)
+        arr_S = np.array(S_list)
+        div1 = arr_M.min() - arr_M.max()
+        if div1 == 0:
+            div1 = 0.00000001
+        div2 = arr_S.min() - arr_S.max()
+        if div2 == 0:
+            div2 = 0.00000001
+        m_n = (M - arr_M.max()) / div1
+        s_n = (S - arr_S.max()) / div2
+ 
+        if t != 1:
+            '''compute dist_S and dist_M between each community in history and Ct-1'''
+            a = bx.sum() / len(bx) - xo
+            b = by.sum() / len(by) - yo
+            length = round(math.sqrt(a ** 2 + b ** 2), 8)
+            sim_space_list.append(length)
+            set2 = set(Ct)
+            sim = round(len(set(front_c) & (set2)) / len((set2).union(set(front_c))), 8)
+            sim_con_list.append(sim)
+            arrSpace = np.array(sim_space_list)
+            arrCon = np.array(sim_con_list)
+            
+            """compute dist_max_S and dist_max_M between each community in history and Ct-1"""
+            KM_max, KS_max = arrCon.max(),arrSpace.max()
+            
+            """compute historical cost between each community in history and Ct-1"""
+            K_ct_dict = {}
+            for i in list(History_Opt_community.keys()):
+                a = History_Opt_community[i][2].sum() / len(History_Opt_community[i][2]) - xo
+                b = History_Opt_community[i][3].sum() / len(History_Opt_community[i][3]) - yo
+                length = round(math.sqrt(a ** 2 + b ** 2), 8)
+                sim = round(len(set(front_c) & (set(i))) / len((set(i)).union(set(front_c))), 8)
+                sim_s = length / KS_max
+                sim_c = sim / KM_max
+                K = round(0.5*(sim_c-sim_s),8)
+                K_ct_dict[tuple(i)] = K
+                K_list.append(K)
+            arr_K = np.array(K_list)
+            div3 = arr_K.min() - arr_K.max()
+            if div3 == 0:
+                div3 = 0.00000001
+                
+            """compute T' between Ct and Ct-1'"""
+            k_n = (K_ct_dict[tuple(Ct)] - arr_K.max()) / div3
+
+            """compute MMD of Ct"""
+            MMD_Ct = round(m_n + s_n + k_n,8)
+            
+            """compute MMD of each community in history"""
+            for i in list(History_Opt_community.keys()):
+                m = (History_Opt_community[i][0] - arr_M.max()) / div1
+                s = (History_Opt_community[i][1] - arr_S.max()) / div2
+                k = (K_ct_dict[tuple(i)] - arr_K.max()) / div3
+                mmd = round(m + s + k,8)
+                if mmd < MMD_Ct:
+                    Copt[tuple(i)] = mmd
+                    MMD_Ct = mmd
+                    
+            """select the community with the smallest MMD"""
+            if len(Copt.keys()) != 0:
+                Copt_sort = sorted(Copt.items(), key=lambda x: x[1])
+                Sort_Copt = [key for key, value in Copt_sort]
+                return list(Sort_Copt[0])
+        else:
+            MMD_Ct = round(m_n + s_n,8)
+            for i in list(History_Opt_community.keys()):
+                m = (History_Opt_community[i][0] - arr_M.max()) / div1
+                s = (History_Opt_community[i][1] - arr_S.max()) / div2
+                mmd = round(m + s,8)
+                if mmd < MMD_Ct:
+                    Copt[tuple(i)] = mmd
+                    MMD_Ct = mmd
+            if len(Copt.keys()) != 0:
+                Copt_sort = sorted(Copt.items(), key=lambda x: x[1])
+                Sort_Copt = [key for key, value in Copt_sort]
+                return list(Sort_Copt[0])
+
+        if operator.eq(VCTT, Ct):
+            break
+
+        community_neighbors_nodes = set()
+        for u in set(Ct):
+            Nu = g.graph[u]
+            community_neighbors_nodes = set(Nu) | set(community_neighbors_nodes)
+        Ct_neighbors = community_neighbors_nodes - set(Ct)
+        if len(Ct_neighbors) == 0:
+            break
+        VCTT = Ct[:]
+    return Ct
+
+def Read_nodes(i, t, datas):
+    C = []
+    f = open("community/"+str(datas)+"/" + str(t) + "th/" + str(i) + ".txt", 'r')
+    nodes = f.read().strip().split(",")
+    nodes.pop(-1)
+    for i in nodes:
+        C.append(int(i))
+    return C
+
+def Write_nodes(community_nodes, i, t, datas):
+    f = open("community/"+str(datas)+"/"+ str(t) +"th/" + str(i)+".txt", 'a')
+    for j in community_nodes:
+        f.write(str(j) + ",")
+    f.close()
+
+if __name__ == '__main__':
+    datas = "weep"
+    
+    '''weep'''
+    # s_list = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 525, 550, 575, 600, 625, 650, 675, 700, 725, 750,775,                 800, 825, 850, 875, 900, 925, 950, 975, 1000, 1025, 1050, 1075, 1100, 1125, 1150, 1175, 1200, 1225,1250, 1275, 1300, 1325, 1350, 1375, 1400,1425, 1450,                 1475, 1500, 1525, 1550, 1575, 1600, 1625, 1650, 1675, 1700, 1725, 1750, 1775, 1800, 1825,1850, 1875, 1900, 1925, 1950, 1975, 2000,2025, 2050, 2075,                     2100, 2125, 2150, 2175, 2200, 2225, 2250, 2275, 2300, 2325, 2350, 2375, 2400, 2425,2450, 2475, 2500, 2525, 2550, 2575, 2600,2625, 2650, 2675, 2700,                     2725, 2750, 2775, 2800, 2825, 2850, 2875, 2900, 2925, 2950, 2975, 3000, 3025,3050, 3075, 3100, 3125, 3150, 3175, 3200,3225, 3250, 3275, 3300, 3325,                     3350, 3375, 3400, 3425, 3450, 3475, 3500, 3525, 3550, 3575, 3600, 3625,3650, 3675, 3700, 3725, 3750, 3775, 3800,3825, 3850, 3875, 3900, 3925, 3950,                     3975, 4000, 4025, 4050, 4075, 4100, 4125, 4150, 4175, 4200, 4225,4250, 4275, 4300, 4325, 4350, 4375, 4400,4425, 4450, 4475, 4500, 4525, 4550, 4575,                     4600, 4625, 4650, 4675, 4700, 4725, 4750, 4775, 4800, 4825,4850, 4875, 4900, 4925, 4950, 4975, 5000]
+    t = 1
+    while t <= 5:
+        f1 = "dataset/" + str(datas) + "/node-" + str(t)
+        f2 = "dataset/" + str(datas) + "/graph-" + str(t)
+        Gt = GetNetwork(f1, f2)
+        print("----------" + str(t) + "day-----------")
+        for s in s_list:
+            if t == 1:
+                front_C = []
+                Ct = generate_next_com(Gt, front_C, s, 0, 0, t)
+            else:
+                front_C = Read_nodes(s, t-1, datas)
+                print("query node " + str(s) + "'s pervious community：" + str(len(front_C)))
+                f1 = "dataset/" + str(datas) + "/node-" + str(t-1)
+                f2 = "dataset/" + str(datas) + "/graph-" + str(t-1)
+                G = GetNetwork(f1, f2)
+                xo, yo = node_location(G, front_C)
+                Ct = generate_next_com(Gt, front_C, s, xo, yo, t)
+            print("query node " + str(s) + "'s current community length：" + str(len(Ct)))
+            if len(Ct) > 1:
+                Write_nodes(Ct, s, t, datas)
+        print(nodes)
+        t = t + 1
+    exit()
