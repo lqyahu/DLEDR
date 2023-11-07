@@ -10,16 +10,6 @@ from func_timeout import func_set_timeout
 eps = 0.00000001
 approx = 8
 
-class Logger(object):
-    def __init__(self, fileN="Default.log"):
-        self.terminal = sys.stdout
-        self.log = open(fileN, "a")
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-    def flush(self):
-        pass
-
 # 声明一个图的结构
 class Graph():
     def __init__(self):
@@ -79,6 +69,7 @@ def ReComputeS(g, vc, bx, by, j, dist):
     S = round(-((sumd.sum() * 2 + dist) / (len(vc) * (len(vc) - 1))), approx)
     return S, sumd.sum()
 
+# 增量计算社区平滑性 k
 def ReComputeK(front_c, g, i, xo, yo, ct, X, Y, KM_max, KS_max):
     global eps
     global approx
@@ -196,16 +187,16 @@ def Optimal_Community(front_c, ct, m, s, k, m_min, m_max, s_min, s_max, k_min, k
     global eps
     global approx
     """
-    front_c 上一时刻的社区
-    ct 本轮扩张的社区
-    m_list, s_list 每轮扩张之后的社区的M和S值
-    m, s 本轮扩张的社区的M和S值
-    History_Opt_community 记录的是每轮扩张之后的社区的信息
+        front_c 上一时刻的社区
+        ct 本轮扩张的社区
+        m_list, s_list 每轮扩张之后的社区的M和S值
+        m, s 本轮扩张的社区的M和S值
+        History_Opt_community 记录的是每轮扩张之后的社区的信息
     """
     if t != 1:
         """
-        比较本轮扩张社区的MMD与上一轮扩张社区的MMD
-        如果本轮扩张社区的MMD比上一轮扩张社区的MMD的值大，则返回上一轮扩张的社区
+            比较本轮扩张社区的MMD与上一轮扩张社区的MMD
+            如果本轮扩张社区的MMD比上一轮扩张社区的MMD的值大，则返回上一轮扩张的社区
         """
         div1 = m_min - m_max
         if div1 == 0:
@@ -221,7 +212,7 @@ def Optimal_Community(front_c, ct, m, s, k, m_min, m_max, s_min, s_max, k_min, k
         k_n = (k - k_max) / div3
         MMD_Ct = round(m_n + s_n + k_n, approx)
         """
-        计算历史最优社区中各社区的MMD
+            计算历史最优社区中各社区的MMD
         """
         Copt = {}
         for i in list(History_Opt_community.keys()):
@@ -240,7 +231,7 @@ def Optimal_Community(front_c, ct, m, s, k, m_min, m_max, s_min, s_max, k_min, k
             return []
     else:
         """
-        计算历史最优社区中各社区的MMD
+            计算历史最优社区中各社区的MMD
         """
         div1 = m_min - m_max
         if div1 == 0:
@@ -248,7 +239,9 @@ def Optimal_Community(front_c, ct, m, s, k, m_min, m_max, s_min, s_max, k_min, k
         div2 = s_min - s_max
         if div2 == 0:
             div2 = s_max - eps
-        """计算本轮扩张的社区Ct与Ct-1的MMD"""
+        """
+            计算本轮扩张的社区Ct与Ct-1的MMD
+        """
         m_n = (m - m_max) / div1
         s_n = (s - s_max) / div2
         MMD_Ct = round(m_n + s_n, approx)
@@ -281,7 +274,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         front_c_xo、front_c_yo 社区 front_c的中心坐标
     """
     """
-    计算查询节点与其邻居节点的平均距离
+        计算查询节点与其邻居节点的平均距离
     """
     global eps
     global approx
@@ -301,7 +294,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
     query_node_avg_dist = round(sum_dist / len(mat), approx)
     # print("query_node_avg_dist",query_node_avg_dist)
     """
-    计算查询节点的邻居节点的平均距离
+        计算查询节点的邻居节点的平均距离
     """
     ct_n_x, ct_n_y = [], []
     DIST = {}  # 记录邻居节点与查询节点的距离
@@ -338,7 +331,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         ct_n = CN
     # print("ct_n",ct_n)
     """
-    step1 选择候选节点
+        step1 选择候选节点
     """
     candidate_nodes = {}
     for i in ct_n:
@@ -350,7 +343,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         if t == 1:
             K = eps
         else:
-            K, x, y = ReComputeK(front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
+            K, x, y = (front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
             x.remove(g.nodes[i][0])
             y.remove(g.nodes[i][1])
         candidate_nodes[i] = [M, S, K]
@@ -359,7 +352,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         eo = eo - len(g.graph[i]) + 2 * num
         # print("add node " + str(i) + "，M、S and K are :" + str(round(M, approx)) + "；" + str(round(S, approx)) + "；" + str(round(K, approx)))
     """
-    step2 计算候选节点的MMD，并根据MMD值对其进行排序
+        step2 计算候选节点的MMD，并根据MMD值对其进行排序
     """
     M_list, S_list, K_list = [], [], []
     for i in candidate_nodes:
@@ -390,7 +383,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
     candidate_nodes_mmd = sorted(candidate_nodes_mmd.items(), key=lambda x: x[1])
     candidate_nodes_sorted = [key for key, value in candidate_nodes_mmd]
     """
-    step3 社区扩张
+        step3 社区扩张
     """
     # step3.1 计算各扩张后的社区与社区front_c之间最大的结构一致性和空间一致性
     km_max, ks_max = Max_KK(front_c, g, xo, yo, candidate_nodes_sorted, ct[:], x[:], y[:])
@@ -407,7 +400,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
             x.append(g.nodes[i][0])
             y.append(g.nodes[i][1])
         else:
-            K_new, x, y = ReComputeK(front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
+            K_new, x, y = (front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
         # print("the community ", ct, " M、 S and K are :" + str(round(M_new, approx)) + "；" + str(round(S_new, approx)) + "；" + str(round(K_new, approx)))
         dist = dist + sumd * 2
         bx = np.array(x)
@@ -415,10 +408,10 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         history[tuple(ct)] = [M_new, S_new, K_new, ei, eo, dist, bx, by, x[:], y[:]]
 
     """
-    step4 计算候选社区的MMD，并记录其M、S、K值
+        step4 计算候选社区的MMD，并记录其M、S、K值
     """
     #  step4.1 计算历史最优社区中的每个社区与前一时刻社区之间的K值
-    # step4.1.1 计算历史最优社区中各社区与Ct-1的最大空间距离和最大成员距离
+    #  step4.1.1 计算历史最优社区中各社区与Ct-1的最大空间距离和最大成员距离
     M_list, S_list, K_list = [], [], []
     for i in history:
         M_list.append(history[i][0])
@@ -437,7 +430,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
     if div3 == 0:
         div3 = -arrK.max() - eps
     """
-    取MMD值最小的社区作为本轮扩张之后的社区，并记录各个候选社区的信息
+        取MMD值最小的社区作为本轮扩张之后的社区，并记录各个候选社区的信息
     """
     MMD_min = float('inf')
     sss_min = -1
@@ -456,7 +449,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         # m_all_list.append(history[i][0])
         # s_all_list.append(history[i][1])
         """
-        先比较MMD，取MMD最小的社区
+            先比较MMD，取MMD最小的社区
         """
         if MMD < MMD_min:
             MMD_min = MMD
@@ -466,7 +459,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
             s_list.append(history[i][1])
             k_list.append(history[i][2])
         """
-        若MMD相等，再比较S，取S最大的社区
+            若MMD相等，再比较S，取S最大的社区
         """
         if MMD == MMD_min:
             if history[i][1] > sss_min:
@@ -478,7 +471,7 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
         # print("M'、S'、K' and MMD of add node " + str(i) + " :", str("M'="), str(round(m_n, approx)), str("S'="), str(round(s_n, approx)),
         #       str("K'="), str(round(k_n, approx)), str("MMD="), str(round(MMD, approx)))
     """
-    取在社区扩张中，候选社区的M、S的最大/最小值
+        取在社区扩张中，候选社区的M、S的最大/最小值
     """
     m_list_arr = np.array(m_list)
     s_list_arr = np.array(s_list)
@@ -493,23 +486,26 @@ def FirstDetection(g, query, front_c, ct, ct_n, x, y, ei, eo, dist, km_max, ks_m
 
 def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max, s_min, k_max, k_min, x, y, ei, eo, dist, km_max, ks_max, xo, yo):
     """
-    g 地理社交网络
-    front_c 上一时刻的社区节点
-    ct 社区节点
-    ct_n 社区的邻居节点
-    m_old, s_old, k_old  上一轮社区的M、S和K值
-    m_max, m_min, s_max, s_min, k_max, k_min  上一轮社区扩张中满足条件的社区的M/S/K的最大值/最小值
-    x、y 社区节点的横、纵坐标
-    ei、eo 社区内、外的边数
-    dist 社区节点之间的总距离
-    km_max、ks_max 社区 ct∪{i}(i∈ct_n) 与社区 front_c 之间最大的结构一致性和空间一致性
-    front_c_xo、front_c_yo 社区 front_c的中心坐标
+        g 地理社交网络
+        front_c 上一时刻的社区节点
+        ct 社区节点
+        ct_n 社区的邻居节点
+        m_old, s_old, k_old  上一轮社区的M、S和K值
+        m_max, m_min, s_max, s_min, k_max, k_min  上一轮社区扩张中满足条件的社区的M/S/K的最大值/最小值
+        x、y 社区节点的横、纵坐标
+        ei、eo 社区内、外的边数
+        dist 社区节点之间的总距离
+        km_max、ks_max 社区 ct∪{i}(i∈ct_n) 与社区 front_c 之间最大的结构一致性和空间一致性
+        front_c_xo、front_c_yo 社区 front_c的中心坐标
     """
     global eps
     global approx
     ct_temp = ct[:]
     candidate_nodes = {}  # 记录候选节点
     candidate_nodes_k = []
+    """
+        step1 选择候选节点
+    """
     for i in ct_n:
         ct.append(i)
         M, ei, eo, num = ReComputeM(g, ct, ei, eo, i)
@@ -519,7 +515,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
         if t == 1:
             K = eps
         else:
-            K, x, y = ReComputeK(front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
+            K, x, y = (front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
             x.remove(g.nodes[i][0])
             y.remove(g.nodes[i][1])
         if s_old == -eps:
@@ -532,12 +528,12 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
         eo = eo - len(g.graph[i]) + 2 * num
         # print("add node " + str(i) + "，M、S and K are :" + str(round(M, approx)) + "；" + str(round(S, approx)) + "；" + str(round(K, approx)))
     """
-    如果没有候选节点产生，直接返回上一轮的社区
+        如果没有候选节点产生，直接返回上一轮的社区
     """
     if len(candidate_nodes) == 0 or len(candidate_nodes_k) == 0:
         return {}, ct_temp, m_max, m_min, s_max, s_min, k_max, k_min
     """
-    step2 计算候选节点的MMD，并根据MMD值对其进行排序
+        step2 计算候选节点的MMD，并根据MMD值对其进行排序
     """
     candidate_nodes_mmd = {}  # 记录候选节点的MMD值
     div1 = m_min - m_max
@@ -562,7 +558,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
     if len(candidate_nodes_sorted) > 100:
         candidate_nodes_sorted = candidate_nodes_sorted[:int(len(candidate_nodes_sorted)/2)]
     """
-    step3 社区扩张
+        step3 社区扩张
     """
     # step3.1 计算各扩张后的社区与社区front_c之间最大的结构一致性和空间一致性
     km_max, ks_max = Max_KK(front_c, g, xo, yo, candidate_nodes_sorted, ct[:], x[:], y[:])
@@ -579,7 +575,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
             x.append(g.nodes[i][0])
             y.append(g.nodes[i][1])
         else:
-            K_new, x, y = ReComputeK(front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
+            K_new, x, y = (front_c, g, i, xo, yo, ct, x, y, km_max, ks_max)
         # candidate_comms_k.append(K_new)
         # print("the community ", ct, " M、 S and K are :" + str(round(M_new, approx)) + "；" + str(round(S_new, approx)) + "；" + str(round(K_new, approx)))
         dist = dist + sumd * 2
@@ -587,7 +583,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
         by = np.array(y)
         opt_communities[tuple(ct)] = [M_new, S_new, K_new, ei, eo, dist, bx, by, x[:], y[:]]
     """
-    step4 计算候选社区的MMD，并记录其M、S、K值
+        step4 计算候选社区的MMD，并记录其M、S、K值
     """
     candidate_comm_msk = {}  # 记录候选社区的M、S值
     MMD_min = float('inf')
@@ -597,7 +593,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
     s_list = []
     k_list = []
     """
-    计算在MMD变差之前，所有的扩张社区及其信息
+        计算在MMD变差之前，所有的扩张社区及其信息
     """
     for i in opt_communities:
         m_n = (opt_communities[i][0] - m_max) / div1
@@ -607,7 +603,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
         # print("M'、S'、K' and MMD of add node " + str(i) + " :", str("M'="), str(round(m_n, approx)), str("S'="), str(round(s_n, approx)),
         #       str("K'="), str(round(k_n, approx)), str("MMD="), str(round(MMD, approx)))
         """
-        先比较MMD，取MMD最小的社区，并记录MMD最小社区以及之前社区的M和S值
+            先比较MMD，取MMD最小的社区，并记录MMD最小社区以及之前社区的M和S值
         """
         if MMD < MMD_min:
             MMD_min = MMD
@@ -620,7 +616,7 @@ def NextDetection(g, front_c, ct, ct_n, m_old, s_old, k_old, m_max, m_min, s_max
                                     opt_communities[i][3], opt_communities[i][4], opt_communities[i][5],
                                     opt_communities[i][8], opt_communities[i][9]]
         """
-        若MMD相等，再比较S，取S最大的社区
+            若MMD相等，再比较S，取S最大的社区
         """
         if MMD == MMD_min:
             if opt_communities[i][1] > sss_min:
@@ -683,10 +679,10 @@ def generate_next_com(g, front_c, s, xo, yo, t):
         # print("M_max==", M_max, "M_min==", M_min, "S_max==", S_max, "S_min==", S_min, "K_max==", K_max, "K_min==", K_min)
 
         """
-        M、S、K、eI、eO、dist分别记录本轮扩张之后的最优社区Ct的M、S、K、eI、eO、dist值
-        X、Y记录的是社区Ct节点的横、纵坐标
-        Copt_M_lists、Copt_S_lists记录每轮扩张之后的社区的M和S值
-        History_Opt_community记录每轮扩张后的最优社区的信息
+            M、S、K、eI、eO、dist分别记录本轮扩张之后的最优社区Ct的M、S、K、eI、eO、dist值
+            X、Y记录的是社区Ct节点的横、纵坐标
+            Copt_M_lists、Copt_S_lists记录每轮扩张之后的社区的M和S值
+            History_Opt_community记录每轮扩张后的最优社区的信息
         """
         M = Candidate_nodes_MS[tuple(Ct)][0]
         S = Candidate_nodes_MS[tuple(Ct)][1]
@@ -726,7 +722,7 @@ def generate_next_com(g, front_c, s, xo, yo, t):
 
 def Read_nodes(i, t, datas, nums):
     C = []
-    f = open("TestCommunity/"+str(nums)+"/"+str(datas)+"/" + str(t) + "th/" + str(i) + ".txt", 'r')
+    f = open("TestCommunity_4/"+str(nums)+"/"+str(datas)+"/" + str(t) + "th/" + str(i) + ".txt", 'r')
     nodes = f.read().strip().split(",")
     nodes.pop(-1)
     for i in nodes:
@@ -734,7 +730,7 @@ def Read_nodes(i, t, datas, nums):
     return C
 
 def Write_nodes(community_nodes, i, t, datas, nums):
-    f = open("TestCommunity/"+str(nums)+"/"+str(datas)+"/"+ str(t) +"th/" + str(i)+".txt", 'w')
+    f = open("TestCommunity_4/"+str(nums)+"/"+str(datas)+"/"+ str(t) +"th/" + str(i)+".txt", 'w')
     for j in community_nodes:
         f.write(str(j) + ",")
     f.close()
@@ -762,6 +758,7 @@ if __name__ == '__main__':
         # query_file = "../02_QueryNodes/" + str(datas) + "/new_" + str(datas) + "_query_" + str(nums) + ".txt"
         # query_file = "../03_PartQueryNodes/" + str(datas) + "/" + str(datas) + "_part_query_" + str(nums) + ".txt"
         # query_list = read_file(query_file)
+        query_list = [4618, 9744, 277024, 42016, 285232, 304192, 215113, 227401, 240726, 22113, 309857, 311406, 262786, 151172, 248966, 139912, 222350, 25744, 4753, 290972, 128673, 112803, 153763, 13998, 294065, 53938, 167120, 16084, 18645, 254678, 134378, 186618, 307967, 19717, 173830, 178950, 207109, 93959, 204044, 58125, 53016, 118042, 199455, 268575, 110374, 191798, 156478, 96069, 192344, 164190, 176484, 206694, 232812, 35692, 104818, 184177, 70519, 142715, 216962, 82818, 55691, 28045, 38288, 315310, 204210, 96692, 243638, 91062, 36796, 260031, 142784, 221120, 131541, 209378, 993, 251876, 271844, 42999, 235513, 33279]
         print(len(query_list))
         t = 5
         while t <= 5:
